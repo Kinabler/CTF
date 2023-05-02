@@ -1,0 +1,265 @@
+[*]
++------------------------------+
+|    List useful of Radare2    |     |
++------------------------------+
+r2 -d -A vuln // open r2 to disassembly with AAA.
+s main; pdf  // print the  main function
+dc : disassembly continue
+ds : disassembly step
+db 0x080491bb // set break point at 0x080491bb
+pxw @esp // print out the hexa of esp register.
+pxw @<address> //print out the value of that address.
+dr eip //?
+afl // stands for Analyse Functions List
+rabin2 -I vuln  //Finding the Endianness
+ragg2 -P 100 -r  //Lets create a sequence of length 100.
+wop0 <address> //Calculate khoang cach tu EIP den noi error.
+echo 0 | sudo tee /proc/sys/kernel/randomize_va_space  //disable ASLR
+px @ ebp -0x134
+
+							   
+
+
+
+
+[*]
++---------------------+
+|       Pwntools      |
++---------------------+
+#Processes
+p = process('./vulnerable_binary')  // for local 
+p = remote('my.special.ip', port)  //for ip and port
+#Sending Data to process
+p.send(data)
+p.sendline(data) <=> p.send(data + '\n')
+#Receiving Data From Processes
+p.recv(numb)  //receives numb bytes from the process.
+p.recvuntil(delimiter,drop=False)  //Receives all the data until it encounters the delimiter.  //Not include
+determind.
+p.recvline(keepends=True) <=> p.recvuntil('\n', drop = keepens).  //Return the data including the \n if
+keepends is True.
+p.clean(timeout=0.02)  <=> p.recvall() //Receives all data for timeout seconds and return it
+#Logging
+
+#Log.info(text)
+>>>log.info('Pham Trung Kien')
+[*] Pham Trung Kien
+#log.success(text)
+>>>log.success('ASLR bypassed!')
+[*] ASLR bypassed
+#log.error(text)
+>>>log.error('The payload is too long')
+[*] The payload ... long
+
+#Context (is a global variable)
+context.arch = 'i386'
+context.os = 'linux'
+context.endian = 'little'
+context.bits = 64
+
+ex: context.binary = './vulnerable_binary'
+    p = process()
+ -> It will auto use the context binary.
+
+#Packing
+#p64(addr)
+-> p64(0x04030201) == b'\x01\x02\x03\x04'
+-> context.endian = 'big'
+-> p64(0x04030201) == b'\x04\x03\x02\x01'
+#u64(addr) 
+-> nguoc lai voi p64
+#flat(*args)
+payload = flat(
+    0x01020304,
+    0x59549342,  <=> payload = p64(0x01020304) + p64(0x59549342) + p64(0x12186354)
+    0x12186354
+)
+
+#ELF
+#Creating an ELF object
+elf = ELF('./vulnerable_program')
+#Getting a process
+p = elf.process()
+#The PLT and GOT
+puts_plt = elf.plt['puts']
+put_got = elf.got['puts']
+//PLT : Procedure Linkage Table
+//GOT : Global Offsets Table
+#Functions
+main_address = elf.functions['vuln']  //returns a function object
+main_address = elf.symbols['symbol']  //return address
+#elf.libc
+libc = elf.libc
+#elf.search(needle, writable = False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[*]
++----------------------+
+|    ROP - Ret2Libc    |
++----------------------+
+ROP - Return-oriented programming: Kĩ thuật sử dụng lệnh ret và các ROPgadget để điều khiển luồng thực thi
+ROPgadget: các câu lệnh assembly có trong file thực thi chứa lệnh ret ỏ cuối cùng.
+Ví dụ: "pop rdi; ret"
+Tìm kiếm các ROPgadget trong file bằng lệnh:
+	ROPgadget --binary <đường dẫn file thực thi>
+#Ret2Libc: kĩ thuật sủ dụng lệnh ret để chạy hàm được định nghĩa trong file thư viện libc.
+Ví dụ: chạy system("/bin/sh") trực tiếp từ thư viện libc
+
+Ngay trước khi thực thi lệnh ret
+Stack:
++----------------+
+|return address 1|
++----------------+
+|return address 2|
++----------------+
+|return address 3|
++----------------+
+Ví dụ khác
+ hàm 2 -> hàm 1 -> hàm 0
++----------------------+
+|địa chỉ của câu lệnh 1|  (overwrite) => địa chỉ khai thác.
++----------------------+
+|địa chỉ của câu lệnh 2|
++----------------------+
+ ham2(){
+	...
+	ham1(){
+		...
+		ham0(){
+			...
+			ret
+		}
+		câu lệnh 1
+		ret
+	}
+	câu lệnh 2
+	ret
+}
+ret2 <- ret1 <-ret0
+
+#ROP
+Muốn thực hiện chuỗi lệnh đọc từ bàn phím bằng gets và in ra bằng printf
+Stack (ngay trước lệnh ret):
++-----------------+
+| address of gets |
++-----------------+
+|address of printf|
++-----------------+
+|   any address   |  -> để tránh lỗi
++-----------------+
+
+Tuy nhiên, ta cần điền tham số vào để sử dụng các hàm
+-> Sử dụng ROPgadget để setup các thanh ghi chứ tham số.
+Tham số 1 ứng với thanh ghi RDI -> sử dụng lệnh "pop rdi; ret"
+
+	+--------------------------------------------------------+
+	|Thanh ghi RDI - lưu trữ tham số thử 1 để truyền vào hàm |
+	|RSI - lưu trữ tham số thứ 2                             |
+	|RDX - lưu trữ tham số thứ 3                             |
+	|RCX - lưu trữ tham số thứ 4                             |
+	|R8 - lưu trữ tham số thứ 5                              |
+	|R9 - lưu trữ tham số thứ 6                              |
+	+--------------------------------------------------------+
+
+Ví du: add(a+b) -> a là tham số của RDI
+				-> b là tham số của RSI
+stack:
+1: địa chỉ lệnh "pop rdi; ret"
+2: địa chỉ lưu chuỗi
+3: địa chỉ hàm gets
+
+4: địa chỉ lệnh "pop rdi; ret"
+5: địa chỉ đọc chuỗi
+6: địa chỉ hàm printf
+
+7: địa chỉ nào đó (để tránh lỗi)
+
+[*] Lưu ý về lỗi Segfault tại lệnh MOVAPS:
+Từ Ubuntu 18.04 trở đi, nếu việc thực thi thất bại tại những hàm như
+bufferend_vfprintf() hay do_system() trong những file thực thi 64bit
+là do ngay trước lệnh ret, đầu vùng nhớ stack được cấp 16 bytes cho
+việc gọi lệnh tại return address nên để thực được thì cần chèn thêm
+1 ROPgadget "ret" vào trước câu lệnh cần thực thi để bỏ đi 1 stack
+8 bytes đầu tiên và thực thi câu lệnh nằm ở stack ngay sau đó.
+Ví dụ: 
+	+----------------------------+
+	|     địa chỉ lệnh "ret"     |
+	+----------------------------+
+	|địa chỉ lệnh "pop rdi ; ret"|
+	+----------------------------+
+	|   địa chỉ lưu chuỗi        |
+	+----------------------------+
+	|      địa chỉ hàm gets      |
+	+----------------------------+
+	|    địa chỉ lệnh "ret"      |
+	+----------------------------+
+	|địa chỉ lệnh "pop rdi ; ret"|
+	+----------------------------+
+	|    địa chỉ đọc chuỗi       |
+	+----------------------------+
+	|    địa chỉ hàm printf      |
+	+----------------------------+
+	|     địa chỉ lệnh "ret"     |
+	+----------------------------+
+	| địa chỉ nào đó (tránh lỗi) |
+	+----------------------------+
+	
+#Ret2Libc
+
+Nếu có thể tấn công stack overflow, ghi đè được return address:
+	- Nếu chế độ NX được bật -> ret2shellcode là vô dụng -> dùng cách khác
+	- Nếu không có sẵn các hàm print flag hoặc hàm system lấy shell trong file
+	thực thi -> dùng các hàm trong file thư viện libc.
+Điều kiện tiên quyết:
+	- Biết được phiên bản file libc mà chương trình đang liên kết
+	- Tìm được địa chỉ base (bắt đầu) của file libc trên máy host sau khi chương
+	trình được liên kết với file libc
+	-> Bằng việc rò rỉ địa chỉ của 1 hàm nào đó của file libc trên máy, ta có thể
+	tìm được địa chỉ base bằng cách lấy:
+	#địa chỉ libc base = địa chỉ hàm - địa chỉ offset của hàm (có trong file libc)
+	-> Ta có thể đoán được phiên bản file bằng 12 bit cuối (3 kí tự hex cuối) 
+	của địa chỉ hàm đã rò rỉ
+	-> Địa chỉ base đúng thường sẽ kết thúc với 3 kí tự hex cuối là 000
+Đã có địa chỉ base, ta có thể tính địa chỉ của các hàm trong file libc
+đã được liên kết với chương trình:
+	 #địa chỉ hàm = địa chỉ base + địa chỉ offset của hàm (có trong file libc)
+File libc còn chứa 1 số chuỗi thông dụng như "/bin/sh", thuận tiện cho việc khai thác
+
+	+------------------------------------------------------------------+
+	| Lệnh tìm địa chỉ hàm trong file libc:                            |
+	| readelf -s (đường dẫn đến file libc) | grep "(tên hàm)"          |
+	| hoặc:                                                            |
+	| objdump -TC (đường dẫn đến file libc) | grep "(tên hàm)"         |
+	| Lệnh tìm địa chỉ chuỗi trong file libc:                          |
+	| strings -t x (đường dẫn đến file libc) | grep "(chuỗi cần tìm)"  |
+	+------------------------------------------------------------------+
+
+Các bước làm bài: 
+		1. Dịch ngược 
+		2. Lên kịch bản
+			-  Stack OVerflow 40 bytes đến Ret address
+			-  Nhập chuỗi %p%p%p%p%p vào hàm gets có sẵn địa chỉ.
+			-  sử dụng hàm printf đã có sẵn địa chỉ để leak địa chỉ của 1 hàm nào đó trong libc qua lỗi format strings
+			-  TÍnh địa chỉ base và địa chỉ hàm system và chuỗi /bin/sh trong file libc
+			-  Sử dụng hàm system(/bin/sh)
+		3. Viết script
