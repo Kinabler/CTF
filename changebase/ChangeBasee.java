@@ -1,9 +1,10 @@
-package changebasee;
+package changebase;
 
 /**
  *
  * @author phamt
  */
+import java.math.BigInteger;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -191,7 +192,6 @@ public class ChangeBasee {
                     break;
                 }
             }
-            System.out.println("Output value: " + outputValue);
         } else if (baseInput == 16) {
             switch (baseOutput) {
                 case 2: {
@@ -212,42 +212,45 @@ public class ChangeBasee {
     }
 
     private static String binaryToDecimal(String inputValue) {
-        int value = 0; //To save value after convert
+        BigInteger value = BigInteger.ZERO; //To save value after convert
         //Take element multi with reverse index
         int startIdx = inputValue.length() - 1; //Start idx is length --> 0
         //Traversal inputValue string to multi each element
         for (int i = 0; i < inputValue.length(); i++) {
             //If matches '1' --> calc and add to value
             if (inputValue.charAt(i) == '1') {
-                value += 1 * Math.pow(2, startIdx);
+                value = value.add((BigInteger.valueOf(2).pow(startIdx)));
             }
             startIdx--; //Decrease index
         }
-        return Integer.toString(value);
+        System.out.println("Value = " + value);
+        return value.toString();
     }
 
     private static String decimalToHex(String inputValue) {
         String valueHex = "";
-        int inputDec = Integer.parseInt(inputValue);
+        BigInteger inputDec = new BigInteger(inputValue);
         // Div until divisor = 0;
         // Take remainder into String from last --> 0
-        while (inputDec != 0) {
-            int remainder = inputDec % 16;
-            inputDec /= 16;
+        while (inputDec.compareTo(new BigInteger("0")) != 0) {
+            BigInteger[] divAndRemain = inputDec.divideAndRemainder(new BigInteger("16"));
+            inputDec = divAndRemain[0];
+            BigInteger remainder = divAndRemain[1];
             valueHex = insertRemainderIntoHexValue(remainder, valueHex);
         }
         return valueHex;
     }
 
-    private static String insertRemainderIntoHexValue(int remainder, String value) {
+    private static String insertRemainderIntoHexValue(BigInteger remainder, String value) {
         // If remainder between [0, 9] --> insert directly 
-        if (remainder >= 0 && remainder <= 9) {
-            value = Integer.toString(remainder) + value;
+        if (remainder.compareTo(BigInteger.ZERO) >= 0 && remainder.compareTo(new BigInteger("9")) <= 0) {
+            value = remainder.toString() + value;
             return value;
         }
         //If remainder between [10, 15] --> convert to right format and insert
-        if (remainder >= 10 && remainder <= 15) {
-            value = Character.toString((char) ('a' + (remainder - 10))) + value;
+        if (remainder.compareTo(new BigInteger("10")) >= 0 && remainder.compareTo(new BigInteger("15")) <= 0) {
+            char hexChar = (char) ('a' + remainder.intValue() - 10);
+            value = hexChar + value;
         }
         return value;
     }
@@ -259,19 +262,20 @@ public class ChangeBasee {
 
     private static String decimalToBinary(String inputValue) {
         String valueBinary = "";
-        int inputDec = Integer.parseInt(inputValue);
+        BigInteger inputDec = new BigInteger(inputValue);
         // Div until divisor = 0;
         // Take remainder into String from last --> 0
-        while (inputDec != 0) {
-            int remainder = inputDec % 2;
-            inputDec /= 2;
+        while (inputDec.compareTo(new BigInteger("0")) != 0) {
+            BigInteger[] divAndRemain = inputDec.divideAndRemainder(new BigInteger("2"));
+            inputDec = divAndRemain[0];
+            BigInteger remainder = divAndRemain[1];
             valueBinary = remainder + valueBinary;
         }
         return valueBinary;
     }
 
     private static String hexToDecimal(String inputValue) {
-        int value = 0; //To save value after convert
+        BigInteger value = BigInteger.ZERO; //To save value after convert
         //Take element multi with reverse index
         int startIdx = inputValue.length() - 1; //Start idx is length --> 0
         //Traversal inputValue string to multi each element with 16
@@ -280,14 +284,15 @@ public class ChangeBasee {
             // process [0, 9] first and [a,f] last
             // if [0, 9] --> calc directly
             // else convert element to numeric data [10, 15] to calc
+            BigInteger powerOfIdx = BigInteger.valueOf(16).pow(startIdx);
             if (element >= 0 && element <= 9) {
-                value += (element) * Math.pow(16, startIdx);
+                value = value.add(BigInteger.valueOf(element).multiply(powerOfIdx));
             } else {
-                value += (10 + (inputValue.charAt(i) - 'a')) * Math.pow(16, startIdx);
+                value = value.add(BigInteger.valueOf((10 + (inputValue.charAt(i) - 'a'))).multiply(powerOfIdx));
             }
             startIdx--; //Decrease index
         }
-        return Integer.toString(value);
+        return value.toString();
     }
 
     private static String hexToBinary(String inputValue) {
